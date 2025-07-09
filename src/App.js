@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { collection, getDocs, addDoc } from "firebase/firestore";
+import { collection, getDocs, addDoc, updateDoc, doc } from "firebase/firestore";
 import { db } from "./firebase";
 import "./App.css";
 
@@ -14,7 +14,7 @@ function App() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedSong, setSelectedSong] = useState(null);
   const [showSongDetails, setShowSongDetails] = useState(false);
-  const [viewMode, setViewMode] = useState("chords"); // "chords" or "lyrics"
+  const [viewMode, setViewMode] = useState("chords");
   const [newSong, setNewSong] = useState({
     title: "",
     creator: "",
@@ -23,6 +23,10 @@ function App() {
     chords: [{ section: "Intro", content: "" }],
     lyrics: [{ section: "Verse", content: "" }]
   });
+
+  // Edit states
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingSong, setEditingSong] = useState(null);
 
   useEffect(() => {
     const fetchSongs = async () => {
@@ -55,8 +59,9 @@ function App() {
 
   const handleViewSongDetails = (song) => {
     setSelectedSong(song);
-    setViewMode("chords"); // Reset to chords view when opening
+    setViewMode("chords");
     setShowSongDetails(true);
+    setIsEditing(false); // Ensure edit mode is reset
   };
 
   const handleAddSection = (type) => {
@@ -82,50 +87,32 @@ function App() {
     }));
   };
 
-
-
   const handleSaveSong = async () => {
-    // 1. Basic validation
     if (!newSong.title || !newSong.creator) {
       alert("Please fill in the song title and creator");
       return;
     }
 
-    // 2. Debug output: inspect what you're about to save
-    console.log("→ newSong.chords:", newSong.chords);
-    console.log("→ newSong.lyrics:", newSong.lyrics);
-
-    // 3. Build the Firestore payload
     const payload = {
       title: newSong.title,
       creator: newSong.creator,
       language: newSong.language,
       type: newSong.type,
-      // Convert your chords array into a map: { Intro: "...", Verse: "...", ... }
       chords: newSong.chords.reduce((acc, { section, content }) => {
         if (section) acc[section] = content;
         return acc;
       }, {}),
-      // Convert your lyrics array into a map: { Intro: "...", Verse: "...", ... }
       lyrics: newSong.lyrics.reduce((acc, { section, content }) => {
         if (section) acc[section] = content;
         return acc;
       }, {}),
-      // Preserve the exact order in which you added chord sections
       sectionOrder: newSong.chords.map(({ section }) => section).filter(Boolean),
     };
 
-    console.log("→ payload:", payload);
-
-    // 4. Write to Firestore
     try {
       const docRef = await addDoc(collection(db, "songs"), payload);
-
-      // 5. Update local state & close modal
       setSongs(prev => [...prev, { id: docRef.id, ...payload }]);
       setShowAddModal(false);
-
-      // 6. Reset form fields
       setNewSong({
         title: "",
         creator: "",
@@ -134,7 +121,6 @@ function App() {
         chords: [{ section: "Intro", content: "" }],
         lyrics: [{ section: "Verse", content: "" }],
       });
-
       alert("Song added successfully!");
     } catch (error) {
       console.error("Error adding song:", error);
@@ -142,12 +128,240 @@ function App() {
     }
   };
 
+  // Edit functionality
+  const handleEditSong = (song) => {
+    const order = song.sectionOrder || [];
 
+    const chords = order.map(section => ({
+      section,
+      content: song.chords?.[section] || ""
+    }));
+
+    // Only include lyrics if they exist
+    const lyrics = song.lyrics
+      ? Object.entries(song.lyrics).map(([section, content]) => ({ section, content }))
+      : [];
+
+    setIsEditing(true);
+    setEditingSong({
+      id: song.id,
+      title: song.title,
+      creator: song.creator,
+      language: song.language,
+      type: song.type,
+      chords,
+      lyrics,
+      sectionOrder: [...order],
+    });
+
+    setShowSongDetails(false);
+  };
+
+
+
+
+  const handleUpdateSong = async () => {
+    if (!editingSong.title || !editingSong.creator) {
+      alert("Please fill in the song title and creator");
+      return;
+    }
+
+    const payload = {
+      title: editingSong.title,
+      creator: editingSong.creator,
+      language: editingSong.language,
+      type: editingSong.type,
+      chords: editingSong.chords.reduce((acc, { section, content }) => {
+        if (section) acc[section] = content;
+        return acc;
+      }, {}),
+      lyrics: editingSong.lyrics.reduce((acc, { section, content }) => {
+        if (section) acc[section] = content;
+        return acc;
+      }, {}),
+      // ** Preserve your original order array **
+      sectionOrder: editingSong.sectionOrder.filter(s =>
+        editingSong.chords.some(c => c.section === s)
+      ),
+    };
+
+    try {
+      await updateDoc(doc(db, "songs", editingSong.id), payload);
+      // … rest of your state updates …
+    } catch (error) {
+      console.error(error);
+      alert("Error updating song. Please try again.");
+    }
+  };
+
+  const renderEditForm = () => {
+    if (!editingSong) return null;
+
+    const handleEditSectionChange = (type, index, field, value) => {
+      setEditingSong(prev => ({
+        ...prev,
+        [type]: prev[type].map((item, i) =>
+          i === index ? { ...item, [field]: value } : item
+        )
+      }));
+    };
+
+    const handleAddEditSection = (type) => {
+      setEditingSong(prev => ({
+        ...prev,
+        [type]: [...prev[type], { section: "", content: "" }]
+      }));
+    };
+
+    const handleRemoveEditSection = (type, index) => {
+      setEditingSong(prev => ({
+        ...prev,
+        [type]: prev[type].filter((_, i) => i !== index)
+      }));
+    };
+
+    return (
+      <div className="edit-song-modal">
+        <div className="edit-modal-overlay" onClick={() => setIsEditing(false)}>
+          <div className="edit-modal-content" onClick={e => e.stopPropagation()}>
+            <div className="edit-modal-header">
+              <h2>Edit Song: {editingSong.title}</h2>
+              <button className="close-edit-button" onClick={() => setIsEditing(false)}>
+                ×
+              </button>
+            </div>
+
+            <div className="edit-form-body">
+              <div className="form-group">
+                <label>Song Title</label>
+                <input
+                  type="text"
+                  value={editingSong.title}
+                  onChange={e => setEditingSong(prev => ({ ...prev, title: e.target.value }))}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Creator</label>
+                <input
+                  type="text"
+                  value={editingSong.creator}
+                  onChange={e => setEditingSong(prev => ({ ...prev, creator: e.target.value }))}
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Language</label>
+                  <select
+                    value={editingSong.language}
+                    onChange={e => setEditingSong(prev => ({ ...prev, language: e.target.value }))}
+                  >
+                    <option value="English">English</option>
+                    <option value="Tagalog">Tagalog</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Type</label>
+                  <select
+                    value={editingSong.type}
+                    onChange={e => setEditingSong(prev => ({ ...prev, type: e.target.value }))}
+                  >
+                    <option value="Fast Song">Fast Song</option>
+                    <option value="Slow Song">Slow Song</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="section-group">
+                <div className="section-header">
+                  <h3>Chords Sections</h3>
+                  <button onClick={() => handleAddEditSection('chords')}>
+                    + Add Section
+                  </button>
+                </div>
+                {editingSong.chords.map((chord, index) => (
+                  <div key={index} className="section-item">
+                    <div className="section-item-header">
+                      <input
+                        type="text"
+                        value={chord.section}
+                        onChange={e => handleEditSectionChange('chords', index, 'section', e.target.value)}
+                        placeholder="Section name"
+                      />
+                      {editingSong.chords.length > 1 && (
+                        <button
+                          className="remove-section-button"
+                          onClick={() => handleRemoveEditSection('chords', index)}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                    <textarea
+                      value={chord.content}
+                      onChange={e => handleEditSectionChange('chords', index, 'content', e.target.value)}
+                      placeholder="Chords content..."
+                      rows="3"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="section-group">
+                <div className="section-header">
+                  <h3>Lyrics Sections</h3>
+                  <button onClick={() => handleAddEditSection('lyrics')}>
+                    + Add Section
+                  </button>
+                </div>
+                {editingSong.lyrics.map((lyric, index) => (
+                  <div key={index} className="section-item">
+                    <div className="section-item-header">
+                      <input
+                        type="text"
+                        value={lyric.section}
+                        onChange={e => handleEditSectionChange('lyrics', index, 'section', e.target.value)}
+                        placeholder="Section name"
+                      />
+                      {editingSong.lyrics.length > 1 && (
+                        <button
+                          className="remove-section-button"
+                          onClick={() => handleRemoveEditSection('lyrics', index)}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                    <textarea
+                      value={lyric.content}
+                      onChange={e => handleEditSectionChange('lyrics', index, 'content', e.target.value)}
+                      placeholder="Lyrics content..."
+                      rows="3"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="edit-modal-footer">
+              <button className="cancel-button" onClick={() => setIsEditing(false)}>
+                Cancel
+              </button>
+              <button className="save-button" onClick={handleUpdateSong}>
+                Update Song
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const renderSongDetails = () => {
     if (!selectedSong) return null;
 
-    // Helper stays defined here
     const getSectionContent = (sections, sectionName) => {
       if (typeof sections === 'object' && sections !== null) {
         if (Array.isArray(sections)) {
@@ -160,13 +374,11 @@ function App() {
       return '';
     };
 
-    // Renders in-order sections
     const renderSectionOrder = () => {
       if (!Array.isArray(selectedSong.sectionOrder) || selectedSong.sectionOrder.length === 0) {
         return <p className="no-section-order">No section order defined</p>;
       }
 
-      // Only include sections that actually have content for the current view
       const sectionsForMode = selectedSong.sectionOrder.filter(sectionName => {
         const content = viewMode === "chords"
           ? getSectionContent(selectedSong.chords, sectionName)
@@ -201,12 +413,10 @@ function App() {
       });
     };
 
-
     return (
       <div className="song-details-modal">
         <div className="song-details-overlay" onClick={() => setShowSongDetails(false)}>
           <div className="song-details-content" onClick={e => e.stopPropagation()}>
-            {/* Header */}
             <div className="song-details-header">
               <div className="song-info">
                 <h2 className="song-details-title">{selectedSong.title}</h2>
@@ -216,17 +426,30 @@ function App() {
                   <span className="song-type">{selectedSong.type}</span>
                 </div>
               </div>
-              <button
-                className="close-details-button"
-                onClick={() => setShowSongDetails(false)}
-              >
-                ×
-              </button>
+              <div className="header-buttons">
+                {/* Edit Button */}
+                <button className="edit-icon-button" onClick={() => handleEditSong(selectedSong)} aria-label="Edit">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                    strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                  </svg>
+                </button>
+
+                {/* Close Button */}
+                <button className="close-details-button" onClick={() => setShowSongDetails(false)} aria-label="Close">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                    strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+
+
             </div>
 
-            {/* Body */}
             <div className="song-details-body">
-              {/* Transpose Control */}
               <div className="transpose-control">
                 <span>Transpose:</span>
                 <select className="transpose-select">
@@ -238,7 +461,6 @@ function App() {
                 </select>
               </div>
 
-              {/* View Toggle */}
               <div className="view-toggle">
                 <button
                   className={`toggle-button ${viewMode === 'chords' ? 'active' : ''}`}
@@ -254,7 +476,6 @@ function App() {
                 </button>
               </div>
 
-              {/* Section List */}
               <div className="sections-container">
                 <h3 className="sections-title">
                   {viewMode === 'chords' ? 'Chords Structure' : 'Lyrics Structure'}
@@ -264,7 +485,6 @@ function App() {
                 </div>
               </div>
 
-              {/* Fallback: show all if no section order */}
               {(!selectedSong.sectionOrder || selectedSong.sectionOrder.length === 0) && (
                 <div className="all-sections-container">
                   {viewMode === 'chords' ? (
@@ -304,7 +524,6 @@ function App() {
 
   const renderHomePage = () => (
     <>
-      {/* Search and Filter Section */}
       <div className="search-section">
         <div className="search-container">
           <div className="search-header">
@@ -355,7 +574,6 @@ function App() {
         </div>
       </div>
 
-      {/* Main Content */}
       <main className="main-content">
         {loading ? (
           <div className="loading-container">
@@ -431,9 +649,7 @@ function App() {
 
   return (
     <div className="app">
-      {/* Wrap content in a container */}
       <div className="content-container">
-        {/* Header */}
         <header className="header">
           <div className="header-container">
             <div className="header-content">
@@ -471,13 +687,11 @@ function App() {
           </div>
         </header>
 
-        {/* Page Content */}
         {currentPage === 'home' ? renderHomePage() : renderAlbumPage()}
 
-        {/* Song Details Modal */}
         {showSongDetails && renderSongDetails()}
+        {isEditing && renderEditForm()}
 
-        {/* Add Song Modal */}
         {showAddModal && (
           <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -535,7 +749,6 @@ function App() {
                   </div>
                 </div>
 
-                {/* Chords Section Group */}
                 <div className="section-group">
                   <div className="section-header">
                     <h3 className="section-title">Chords Section</h3>
@@ -606,7 +819,6 @@ function App() {
                   ))}
                 </div>
 
-                {/* Lyrics Section Group */}
                 <div className="section-group">
                   <div className="section-header">
                     <h3 className="section-title">Lyrics Section</h3>
@@ -693,7 +905,6 @@ function App() {
         )}
       </div>
 
-      {/* Footer */}
       <footer className="footer">
         <div className="footer-container">
           <div className="footer-content">

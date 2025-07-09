@@ -847,21 +847,6 @@ body {
   gap: 4px;
 }
 
-.close-details-button {
-  background: none;
-  border: none;
-  color: #E2E2E2;
-  font-size: 28px;
-  cursor: pointer;
-  padding: 0 8px;
-  transition: all 0.2s ease;
-}
-
-.close-details-button:hover {
-  color: #FFFFFF;
-  transform: scale(1.1);
-}
-
 .song-details-body {
   margin-top: 20px;
 }
@@ -1054,4 +1039,219 @@ body {
   .chord-content, .lyric-content {
     font-size: 14px;
   }
+}
+
+/* App.css */
+
+/* Edit Modal Styles */
+/* Edit Modal Styles */
+.edit-song-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6); /* Lightened the overlay background */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.edit-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6); /* Lightened the overlay background */
+}
+
+.edit-modal-content {
+  background-color: #1F1F1F;
+  border: 1px solid #242424;
+  border-radius: 8px;
+  width: 80%;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+  padding: 20px;
+  color: #FFFFFF;
+  margin: 80px auto; /* Added margin to ensure it doesn't touch the top */
+}
+
+.edit-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.edit-modal-header h2 {
+  margin: 0;
+  font-size: 24px;
+  color: #FFFFFF;
+}
+
+.close-edit-button {
+  background: none;
+  border: none;
+  color: #E2E2E2;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.edit-form-body {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.form-group label {
+  font-weight: bold;
+  color: #FFFFFF;
+}
+
+.form-group input,
+.form-group select {
+  padding: 8px;
+  background-color: #000000;
+  border: 1px solid #242424;
+  border-radius: 4px;
+  color: #FFFFFF;
+}
+
+.form-row {
+  display: flex;
+  gap: 15px;
+}
+
+.form-row .form-group {
+  flex: 1;
+}
+
+.section-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.section-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #FFFFFF;
+}
+
+.section-header button {
+  padding: 5px 10px;
+  background-color: #242424;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.section-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid #242424;
+  border-radius: 4px;
+}
+
+.section-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.section-item-header input {
+  flex: 1;
+  padding: 5px;
+  background-color: #000000;
+  border: 1px solid #242424;
+  border-radius: 4px;
+  color: #FFFFFF;
+}
+
+.remove-section-button {
+  background: none;
+  border: none;
+  color: #E2E2E2;
+  cursor: pointer;
+  font-size: 20px;
+}
+
+.section-item textarea {
+  padding: 8px;
+  background-color: #000000;
+  border: 1px solid #242424;
+  border-radius: 4px;
+  resize: vertical;
+  color: #FFFFFF;
+}
+
+.edit-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.cancel-button {
+  padding: 8px 16px;
+  background-color: #242424;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.save-button {
+  padding: 8px 16px;
+  background-color: #FFFFFF;
+  color: #000000;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.header-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.edit-icon-button,
+.close-details-button {
+  background: transparent;
+  border: none;
+  color: white;
+  padding: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.edit-icon-button:hover,
+.close-details-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  transform: scale(1.1);
 }
